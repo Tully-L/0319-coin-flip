@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Coin Flip</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a1a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #fff;
+    overflow: hidden;
+  }
+
+  #webcam-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 200px;
+    height: 150px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.15);
+    z-index: 10;
+  }
+
+  #webcam {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+
+  #gesture-canvas {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 200px;
+    height: 150px;
+    z-index: 11;
+    pointer-events: none;
+  }
+
+  #gesture-indicator {
+    position: fixed;
+    top: 172px;
+    right: 16px;
+    width: 200px;
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    z-index: 10;
+  }
+
+  .scene {
+    perspective: 800px;
+    width: 220px;
+    height: 220px;
+    margin-bottom: 40px;
+  }
+
+  .coin {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    cursor: pointer;
+  }
+
+  .coin-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 72px;
+    font-weight: bold;
+    backface-visibility: hidden;
+    box-shadow:
+      inset 0 0 30px rgba(0,0,0,0.3),
+      0 8px 40px rgba(0,0,0,0.5);
+  }
+
+  .coin-front {
+    background: linear-gradient(135deg, #ffd700, #f0c000, #ffec80, #daa520);
+    color: #8b6914;
+    border: 6px solid #daa520;
+  }
+
+  .coin-back {
+    background: linear-gradient(135deg, #c0c0c0, #a8a8a8, #e0e0e0, #909090);
+    color: #505050;
+    border: 6px solid #909090;
+    transform: rotateX(180deg);
+  }
+
+  #result {
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+  }
+
+  #hint {
+    font-size: 15px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 16px;
+  }
+
+  #stats {
+    font-size: 14px;
+    color: rgba(255,255,255,0.35);
+  }
+
+  .glow-heads { color: #ffd700; }
+  .glow-tails { color: #c0c0c0; }
+
+  .particle {
+    position: fixed;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  #swipe-arrow {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 5;
+  }
+
+  #swipe-arrow svg {
+    width: 60px;
+    height: 60px;
+    filter: drop-shadow(0 0 10px rgba(255,215,0,0.5));
+  }
+
+  #swipe-arrow.active {
+    opacity: 1;
+    animation: swipe-pulse 0.4s ease-out;
+  }
+
+  @keyframes swipe-pulse {
+    0% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateX(-50%) translateY(-60px) scale(1.3); opacity: 0; }
+  }
+
+  #permission-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    gap: 20px;
+  }
+
+  #permission-overlay button {
+    padding: 14px 36px;
+    font-size: 18px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ffd700, #daa520);
+    color: #1a1a2e;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  #permission-overlay button:hover { transform: scale(1.05); }
+
+  #permission-overlay p {
+    font-size: 16px;
+    color: rgba(255,255,255,0.6);
+    max-width: 400px;
+    text-align: center;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div id="permission-overlay">
+  <p>This app uses your camera to detect hand gestures.<br>Swipe your hand upward to flip the coin!</p>
+  <button onclick="startCamera()">Enable Camera</button>
+  <p style="font-size:13px; color:rgba(255,255,255,0.3)">You can also click/tap the coin or press Space.</p>
+</div>
+
+<div id="webcam-container">
+  <video id="webcam" autoplay playsinline muted></video>
+</div>
+<canvas id="gesture-canvas"></canvas>
+<div id="gesture-indicator">Waiting for camera...</div>
+
+<div class="scene">
+  <div class="coin" id="coin" onclick="flipCoin()">
+    <div class="coin-face coin-front">H</div>
+    <div class="coin-face coin-back">T</div>
+  </div>
+</div>
+
+<div id="result"></div>
+<div id="hint">Swipe hand up / Click / Press Space</div>
+<div id="stats"></div>
+
+<div id="swipe-arrow">
+  <svg viewBox="0 0 60 60" fill="none">
+    <path d="M30 50 L30 15 M15 28 L30 12 L45 28" stroke="#ffd700" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+
+<!-- MediaPipe Hands via CDN (legacy bundle for broad compat) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+
+<script>
+// ── Coin Flip Logic ──
+const coin = document.getElementById('coin');
+const resultEl = document.getElementById('result');
+const statsEl = document.getElementById('stats');
+let isFlipping = false;
+let totalHeads = 0;
+let totalTails = 0;
+let currentRotationX = 0;
+let currentRotationY = 0;
+
+coin.style.transform = 'rotateX(0deg) rotateY(0deg)';
+
+function updateStats() {
+  const total = totalHeads + totalTails;
+  if (!total) { statsEl.textContent = ''; return; }
+  statsEl.textContent = 'H: ' + totalHeads + ' | T: ' + totalTails + ' | Total: ' + total;
+}
+
+function spawnParticles(isHeads) {
+  const colors = isHeads
+    ? ['#ffd700','#ffec80','#daa520','#f0c000']
+    : ['#c0c0c0','#e0e0e0','#a8a8a8','#d4d4d4'];
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const angle = (Math.PI * 2 * i) / 20;
+    const speed = 80 + Math.random() * 120;
+    const x = window.innerWidth / 2;
+    const y = window.innerHeight / 2 - 40;
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    document.body.appendChild(p);
+    const dx = Math.cos(angle) * speed;
+    const dy = Math.sin(angle) * speed - 60;
+    p.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(0)', opacity: 0 }
+    ], { duration: 700 + Math.random() * 300, easing: 'ease-out' });
+    setTimeout(() => p.remove(), 1000);
+  }
+}
+
+function flipCoin() {
+  if (isFlipping) return;
+  isFlipping = true;
+  resultEl.textContent = '';
+
+  const isHeads = Math.random() < 0.5;
+  const fullSpinsX = (6 + Math.floor(Math.random() * 5)) * 360;
+  const finalX = isHeads ? 0 : 180;
+  const targetRotationX = currentRotationX + fullSpinsX + finalX - (currentRotationX % 360);
+  const wobbleY = (Math.random() - 0.5) * 60;
+  const targetRotationY = wobbleY;
+  const duration = 1800;
+  const startTime = performance.now();
+  const startX = currentRotationX;
+  const startY = currentRotationY;
+
+  function easeOutBack(t) {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  }
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = easeOutBack(progress);
+    const rx = startX + (targetRotationX - startX) * eased;
+    const ry = startY + (targetRotationY - startY) * eased;
+    const bounce = Math.sin(progress * Math.PI) * 80;
+    coin.style.transform = 'translateY(' + (-bounce) + 'px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      currentRotationX = targetRotationX;
+      currentRotationY = targetRotationY;
+      isFlipping = false;
+      if (isHeads) {
+        totalHeads++;
+        resultEl.innerHTML = '<span class="glow-heads">HEADS</span>';
+      } else {
+        totalTails++;
+        resultEl.innerHTML = '<span class="glow-tails">TAILS</span>';
+      }
+      spawnParticles(isHeads);
+      updateStats();
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.code === 'Space') { e.preventDefault(); flipCoin(); }
+});
+
+// ── Gesture Detection (MediaPipe Hands) ──
+const video = document.getElementById('webcam');
+const canvas = document.getElementById('gesture-canvas');
+const ctx = canvas.getContext('2d');
+const indicator = document.getElementById('gesture-indicator');
+
+let handHistory = [];
+const HISTORY_LEN = 8;
+const SWIPE_THRESHOLD = 0.15;
+let lastFlipTime = 0;
+const COOLDOWN = 1500;
+
+function showSwipeArrow() {
+  const arrow = document.getElementById('swipe-arrow');
+  arrow.classList.remove('active');
+  void arrow.offsetWidth;
+  arrow.classList.add('active');
+  setTimeout(() => arrow.classList.remove('active'), 500);
+}
+
+function onResults(results) {
+  canvas.width = 200;
+  canvas.height = 150;
+  ctx.clearRect(0, 0, 200, 150);
+
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    const landmarks = results.multiHandLandmarks[0];
+
+    ctx.save();
+    ctx.scale(200, 150);
+    drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: 'rgba(255,215,0,0.5)', lineWidth: 0.005 });
+    drawLandmarks(ctx, landmarks, { color: '#ffd700', lineWidth: 0.003, radius: 0.008 });
+    ctx.restore();
+
+    const wristY = landmarks[0].y;
+    const now = Date.now();
+    handHistory.push({ y: wristY, t: now });
+    if (handHistory.length > HISTORY_LEN) handHistory.shift();
+
+    if (handHistory.length >= 4) {
+      const oldest = handHistory[0];
+      const newest = handHistory[handHistory.length - 1];
+      const dy = oldest.y - newest.y;
+      const dt = newest.t - oldest.t;
+
+      if (dy > SWIPE_THRESHOLD && dt < 600 && (now - lastFlipTime) > COOLDOWN) {
+        lastFlipTime = now;
+        handHistory = [];
+        showSwipeArrow();
+        flipCoin();
+        indicator.textContent = 'Swipe detected! Flipping...';
+        return;
+      }
+    }
+
+    // Count fingers up
+    let fingersUp = 0;
+    if (landmarks[8].y < landmarks[6].y) fingersUp++;
+    if (landmarks[12].y < landmarks[10].y) fingersUp++;
+    if (landmarks[16].y < landmarks[14].y) fingersUp++;
+    if (landmarks[20].y < landmarks[18].y) fingersUp++;
+
+    indicator.textContent = fingersUp >= 4
+      ? 'Hand open - swipe UP to flip!'
+      : 'Open hand & swipe up';
+  } else {
+    indicator.textContent = 'No hand detected';
+    handHistory = [];
+  }
+}
+
+function initHands() {
+  const hands = new Hands({
+    locateFile: function(file) {
+      return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/' + file;
+    }
+  });
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5
+  });
+  hands.onResults(onResults);
+
+  const camera = new Camera(video, {
+    onFrame: async function() { await hands.send({ image: video }); },
+    width: 320,
+    height: 240,
+    facingMode: 'user'
+  });
+  camera.start();
+  indicator.textContent = 'Detecting hands...';
+}
+
+async function startCamera() {
+  document.getElementById('permission-overlay').style.display = 'none';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: 320, height: 240 }
+    });
+    video.srcObject = stream;
+    await video.play();
+    initHands();
+  } catch(e) {
+    indicator.textContent = 'Camera denied. Use click/space.';
+    console.error(e);
+  }
+}
+</script>
+</body>
+</html>
