@@ -10,25 +10,134 @@
   body {
     background: #0a0a1a;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     color: #fff;
     overflow: hidden;
     position: relative;
   }
 
-  /* ── Ambient Background ── */
-  #bg-canvas {
+  #three-canvas {
     position: fixed;
     inset: 0;
     z-index: 0;
+  }
+
+  /* ── UI Overlay ── */
+  #ui-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 40px;
+  }
+
+  #ui-overlay > * { pointer-events: auto; }
+
+  #result {
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
     pointer-events: none;
   }
 
-  /* ── Webcam (draggable, hideable) ── */
+  .glow-heads { color: #ffd700; }
+  .glow-tails { color: #c0c0c0; }
+
+  #hint {
+    font-size: 14px;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 10px;
+    pointer-events: none;
+  }
+
+  #stats {
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 8px;
+    pointer-events: none;
+  }
+
+  #history-bar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 12px;
+    max-width: 90vw;
+    overflow-x: auto;
+    padding: 4px 0;
+  }
+
+  .history-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    animation: pop-in 0.3s ease-out;
+  }
+
+  .history-dot.heads {
+    background: linear-gradient(135deg, #ffd700, #daa520);
+    color: #8b6914;
+    box-shadow: 0 0 8px rgba(255,215,0,0.3);
+  }
+
+  .history-dot.tails {
+    background: linear-gradient(135deg, #c0c0c0, #909090);
+    color: #505050;
+    box-shadow: 0 0 8px rgba(192,192,192,0.3);
+  }
+
+  @keyframes pop-in {
+    0% { transform: scale(0); }
+    80% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  #multi-flip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  #multi-flip button {
+    padding: 6px 14px;
+    border: 1px solid rgba(255,215,0,0.3);
+    border-radius: 8px;
+    background: rgba(255,215,0,0.08);
+    color: #ffd700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  #multi-flip button:hover {
+    background: rgba(255,215,0,0.2);
+    border-color: rgba(255,215,0,0.5);
+  }
+
+  #multi-flip button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  #multi-flip .reset-btn {
+    border-color: rgba(255,100,100,0.3);
+    color: #ff6b6b;
+    background: rgba(255,100,100,0.08);
+  }
+
+  /* ── Webcam ── */
   #webcam-wrapper {
     position: fixed;
     top: 16px;
@@ -36,10 +145,8 @@
     z-index: 20;
     cursor: grab;
     user-select: none;
-    transition: opacity 0.3s;
   }
 
-  #webcam-wrapper.hidden { opacity: 0; pointer-events: none; }
   #webcam-wrapper.dragging { cursor: grabbing; }
 
   #webcam-container {
@@ -107,7 +214,6 @@
     z-index: 2;
   }
 
-  /* ── Sensitivity Slider ── */
   #sensitivity-bar {
     display: flex;
     align-items: center;
@@ -123,228 +229,18 @@
     height: 4px;
   }
 
-  /* ── Main Content ── */
-  .main-content {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  /* ── Coin ── */
-  .scene {
-    perspective: 900px;
-    width: 220px;
-    height: 220px;
-    margin-bottom: 32px;
-  }
-
-  .coin {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    transform-style: preserve-3d;
-    cursor: pointer;
-  }
-
-  .coin-face {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    backface-visibility: hidden;
-    overflow: hidden;
-  }
-
-  .coin-front {
-    transform: translateZ(6px);
-    box-shadow: 0 0 6px rgba(0,0,0,0.4);
-  }
-
-  .coin-back {
-    transform: rotateX(180deg) translateZ(6px);
-    box-shadow: 0 0 6px rgba(0,0,0,0.4);
-  }
-
-  .coin-face img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-    display: block;
-  }
-
-  /* 3D coin edge - built from thin slices */
-  .coin-edge-ring {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    backface-visibility: hidden;
-    box-sizing: border-box;
-    border: 10px solid transparent;
-    background-clip: padding-box;
-    overflow: hidden;
-  }
-
-  .coin-edge-ring img {
-    position: absolute;
-    top: -10px;
-    left: -10px;
-    width: calc(100% + 20px);
-    height: calc(100% + 20px);
-    object-fit: cover;
-    border-radius: 50%;
-  }
-
-  /* ── Result Display ── */
-  #result {
-    font-size: 36px;
-    font-weight: 700;
-    margin-bottom: 12px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    text-shadow: 0 0 20px rgba(255,215,0,0.5);
-  }
-
-  .glow-heads { color: #ffd700; }
-  .glow-tails { color: #c0c0c0; }
-
-  #hint {
-    font-size: 14px;
-    color: rgba(255,255,255,0.35);
-    margin-bottom: 12px;
-  }
-
-  /* ── Stats ── */
-  #stats {
-    font-size: 13px;
-    color: rgba(255,255,255,0.35);
-    margin-bottom: 8px;
-  }
-
-  /* ── History ── */
-  #history-bar {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-    margin-bottom: 12px;
-    max-width: 90vw;
-    overflow-x: auto;
-    padding: 4px 0;
-  }
-
-  .history-dot {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    font-size: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    transition: transform 0.2s;
-    animation: pop-in 0.3s ease-out;
-  }
-
-  .history-dot.heads {
-    background: linear-gradient(135deg, #ffd700, #daa520);
-    color: #8b6914;
-    box-shadow: 0 0 8px rgba(255,215,0,0.3);
-  }
-
-  .history-dot.tails {
-    background: linear-gradient(135deg, #c0c0c0, #909090);
-    color: #505050;
-    box-shadow: 0 0 8px rgba(192,192,192,0.3);
-  }
-
-  @keyframes pop-in {
-    0% { transform: scale(0); }
-    80% { transform: scale(1.2); }
-    100% { transform: scale(1); }
-  }
-
-  /* ── Multi-flip Controls ── */
-  #multi-flip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-
-  #multi-flip button {
-    padding: 6px 14px;
-    border: 1px solid rgba(255,215,0,0.3);
-    border-radius: 8px;
-    background: rgba(255,215,0,0.08);
-    color: #ffd700;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  #multi-flip button:hover {
-    background: rgba(255,215,0,0.2);
-    border-color: rgba(255,215,0,0.5);
-  }
-
-  #multi-flip button:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
-
-  /* ── Particles ── */
-  .particle {
+  /* ── Click area for coin ── */
+  #coin-click-area {
     position: fixed;
-    pointer-events: none;
-    z-index: 5;
-  }
-
-  /* ── Swipe Arrow ── */
-  #swipe-arrow {
-    position: fixed;
-    bottom: 80px;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    opacity: 0;
-    z-index: 5;
+    transform: translate(-50%, -60%);
+    width: 250px;
+    height: 250px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 2;
   }
-
-  #swipe-arrow svg {
-    width: 60px;
-    height: 60px;
-    filter: drop-shadow(0 0 10px rgba(255,215,0,0.5));
-  }
-
-  #swipe-arrow.active {
-    opacity: 1;
-    animation: swipe-pulse 0.4s ease-out forwards;
-  }
-
-  @keyframes swipe-pulse {
-    0% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
-    100% { transform: translateX(-50%) translateY(-60px) scale(1.3); opacity: 0; }
-  }
-
-  /* ── Screen Shake ── */
-  @keyframes screen-shake {
-    0%, 100% { transform: translate(0,0); }
-    10% { transform: translate(-3px, 2px); }
-    20% { transform: translate(3px, -2px); }
-    30% { transform: translate(-2px, -3px); }
-    40% { transform: translate(2px, 3px); }
-    50% { transform: translate(-1px, 1px); }
-    60% { transform: translate(1px, -1px); }
-    70% { transform: translate(0, 2px); }
-    80% { transform: translate(-1px, 0); }
-    90% { transform: translate(1px, 1px); }
-  }
-
-  body.shaking { animation: screen-shake 0.3s ease-out; }
 
   /* ── Permission Overlay ── */
   #permission-overlay {
@@ -395,28 +291,35 @@
     line-height: 1.8;
   }
 
+  /* ── Screen Shake ── */
+  @keyframes screen-shake {
+    0%, 100% { transform: translate(0,0); }
+    10% { transform: translate(-3px, 2px); }
+    20% { transform: translate(3px, -2px); }
+    30% { transform: translate(-2px, -3px); }
+    40% { transform: translate(2px, 3px); }
+    50% { transform: translate(-1px, 1px); }
+  }
+  body.shaking { animation: screen-shake 0.3s ease-out; }
+
   /* ── Mobile ── */
   @media (max-width: 600px) {
-    .scene { width: 160px; height: 160px; }
     #result { font-size: 28px; }
     #webcam-container { width: 150px; height: 112px; }
     #multi-flip button { padding: 5px 10px; font-size: 12px; }
     .history-dot { width: 14px; height: 14px; font-size: 7px; }
-  }
-
-  @media (max-width: 380px) {
-    .scene { width: 130px; height: 130px; }
-    #webcam-container { width: 120px; height: 90px; }
+    #coin-click-area { width: 200px; height: 200px; }
   }
 </style>
 </head>
 <body>
 
-<canvas id="bg-canvas"></canvas>
+<canvas id="three-canvas"></canvas>
+<div id="coin-click-area" onclick="flipCoin()"></div>
 
 <div id="permission-overlay">
   <h2>AI Coin Flip</h2>
-  <p>Hand gesture controlled coin flipper.<br>Your camera detects hand movements in real-time.</p>
+  <p>Hand gesture controlled coin flipper with 3D rendering.</p>
   <div class="gesture-list">
     Swipe Up = Flip coin<br>
     Thumbs Up = Flip again<br>
@@ -440,36 +343,21 @@
   </div>
 </div>
 
-<div class="main-content">
-  <div class="scene">
-    <div class="coin" id="coin" onclick="flipCoin()">
-      <div class="coin-face coin-front">
-        <img src="assets/coin-obverse.png" alt="Mexico 10 Pesos - Obverse">
-      </div>
-      <div class="coin-face coin-back">
-        <img src="assets/coin-reverse.png" alt="Mexico 10 Pesos - Reverse">
-      </div>
-      <!-- Edge segments generated by JS -->
-    </div>
-  </div>
-
+<div id="ui-overlay">
   <div id="result"></div>
-  <div id="hint">Swipe up / Click / Space</div>
+  <div id="hint">Swipe up / Click coin / Space</div>
   <div id="stats"></div>
   <div id="history-bar"></div>
   <div id="multi-flip">
     <button onclick="multiFlip(5)">x5</button>
     <button onclick="multiFlip(10)">x10</button>
     <button onclick="multiFlip(20)">x20</button>
-    <button onclick="resetStats()" style="border-color:rgba(255,100,100,0.3);color:#ff6b6b;background:rgba(255,100,100,0.08)">Reset</button>
+    <button class="reset-btn" onclick="resetStats()">Reset</button>
   </div>
 </div>
 
-<div id="swipe-arrow">
-  <svg viewBox="0 0 60 60" fill="none">
-    <path d="M30 50 L30 15 M15 28 L30 12 L45 28" stroke="#ffd700" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-</div>
+<!-- Three.js -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 
 <!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
@@ -478,231 +366,358 @@
 
 <script>
 // ══════════════════════════════════════
-// Audio (Web Audio API - procedural)
+// Three.js Scene Setup
 // ══════════════════════════════════════
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+var canvas = document.getElementById('three-canvas');
+var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0a1a);
+
+var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 5);
+camera.lookAt(0, 0, 0);
+
+// ── Lighting ──
+var ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambientLight);
+
+var keyLight = new THREE.DirectionalLight(0xfff5e0, 1.8);
+keyLight.position.set(3, 4, 5);
+scene.add(keyLight);
+
+var fillLight = new THREE.DirectionalLight(0xc0d0ff, 0.6);
+fillLight.position.set(-3, 2, 3);
+scene.add(fillLight);
+
+var rimLight = new THREE.DirectionalLight(0xffd700, 0.8);
+rimLight.position.set(0, -3, -2);
+scene.add(rimLight);
+
+var topLight = new THREE.PointLight(0xffffff, 0.5, 20);
+topLight.position.set(0, 5, 2);
+scene.add(topLight);
+
+// ── Environment Map (procedural) ──
+function generateEnvMap() {
+  var size = 256;
+  var c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  var ctx = c.getContext('2d');
+
+  var grd = ctx.createLinearGradient(0, 0, 0, size);
+  grd.addColorStop(0, '#1a1a3a');
+  grd.addColorStop(0.3, '#2a2040');
+  grd.addColorStop(0.5, '#3a3050');
+  grd.addColorStop(0.7, '#4a4060');
+  grd.addColorStop(1, '#1a1020');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, size, size);
+
+  // Add some bright spots for reflections
+  for (var i = 0; i < 15; i++) {
+    var x = Math.random() * size;
+    var y = Math.random() * size;
+    var r = 5 + Math.random() * 20;
+    var g2 = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g2.addColorStop(0, 'rgba(255,245,220,0.4)');
+    g2.addColorStop(1, 'rgba(255,245,220,0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+
+  var tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  return tex;
+}
+
+var envMap = generateEnvMap();
+scene.environment = envMap;
+
+// ── Coin Geometry ──
+var COIN_RADIUS = 1.0;
+var COIN_THICKNESS = 0.09;
+var COIN_SEGMENTS = 128;
+
+// Load textures
+var textureLoader = new THREE.TextureLoader();
+
+function generateNormalMapFromImage(imageSrc, callback) {
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() {
+    var size = 512;
+    var c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    var ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, size, size);
+    var imageData = ctx.getImageData(0, 0, size, size);
+    var data = imageData.data;
+
+    // Convert to grayscale heightmap
+    var heights = new Float32Array(size * size);
+    for (var i = 0; i < size * size; i++) {
+      var idx = i * 4;
+      heights[i] = (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114) / 255;
+    }
+
+    // Sobel filter to generate normal map
+    var normalData = ctx.createImageData(size, size);
+    var nd = normalData.data;
+    var strength = 2.5;
+
+    for (var y = 0; y < size; y++) {
+      for (var x = 0; x < size; x++) {
+        var idx = (y * size + x);
+
+        var tl = heights[((y - 1 + size) % size) * size + ((x - 1 + size) % size)];
+        var t = heights[((y - 1 + size) % size) * size + x];
+        var tr = heights[((y - 1 + size) % size) * size + ((x + 1) % size)];
+        var l = heights[y * size + ((x - 1 + size) % size)];
+        var r2 = heights[y * size + ((x + 1) % size)];
+        var bl = heights[((y + 1) % size) * size + ((x - 1 + size) % size)];
+        var b = heights[((y + 1) % size) * size + x];
+        var br = heights[((y + 1) % size) * size + ((x + 1) % size)];
+
+        var dx = (tr + 2 * r2 + br) - (tl + 2 * l + bl);
+        var dy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+        var dz = 1.0 / strength;
+
+        var len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        dx /= len;
+        dy /= len;
+        dz /= len;
+
+        var pi = idx * 4;
+        nd[pi] = Math.floor((dx * 0.5 + 0.5) * 255);
+        nd[pi + 1] = Math.floor((dy * 0.5 + 0.5) * 255);
+        nd[pi + 2] = Math.floor((dz * 0.5 + 0.5) * 255);
+        nd[pi + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(normalData, 0, 0);
+    var normalTex = new THREE.CanvasTexture(c);
+    callback(normalTex);
+  };
+  img.src = imageSrc;
+}
+
+var coinGroup = new THREE.Group();
+scene.add(coinGroup);
+
+// Front face (Hidalgo portrait) - this is the "heads" side
+var frontTex = textureLoader.load('assets/gold-front-hd.png');
+frontTex.colorSpace = THREE.SRGBColorSpace;
+
+// Back face (Eagle coat of arms) - this is the "tails" side
+var backTex = textureLoader.load('assets/gold-back-hd.png');
+backTex.colorSpace = THREE.SRGBColorSpace;
+
+// Create coin body (cylinder for the edge)
+var edgeGeom = new THREE.CylinderGeometry(COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, COIN_SEGMENTS, 1, true);
+var edgeMat = new THREE.MeshStandardMaterial({
+  color: 0xdaa520,
+  metalness: 0.95,
+  roughness: 0.25,
+  envMap: envMap,
+  envMapIntensity: 1.0
+});
+var edgeMesh = new THREE.Mesh(edgeGeom, edgeMat);
+edgeMesh.rotation.x = Math.PI / 2; // Align cylinder with Z axis
+coinGroup.add(edgeMesh);
+
+// Add ridges on the edge
+var ridgeGeom = new THREE.CylinderGeometry(COIN_RADIUS * 1.003, COIN_RADIUS * 1.003, COIN_THICKNESS * 0.9, COIN_SEGMENTS, 1, true);
+var ridgeMat = new THREE.MeshStandardMaterial({
+  color: 0xb8860b,
+  metalness: 0.98,
+  roughness: 0.15,
+  envMap: envMap,
+  wireframe: false,
+  transparent: true,
+  opacity: 0.3
+});
+var ridgeMesh = new THREE.Mesh(ridgeGeom, ridgeMat);
+ridgeMesh.rotation.x = Math.PI / 2;
+coinGroup.add(ridgeMesh);
+
+// Front face disc
+var faceGeom = new THREE.CircleGeometry(COIN_RADIUS * 0.98, COIN_SEGMENTS);
+var frontMat = new THREE.MeshStandardMaterial({
+  map: frontTex,
+  metalness: 0.85,
+  roughness: 0.3,
+  envMap: envMap,
+  envMapIntensity: 0.6,
+  color: 0xffd700
+});
+var frontMesh = new THREE.Mesh(faceGeom, frontMat);
+frontMesh.position.z = COIN_THICKNESS / 2 + 0.001;
+coinGroup.add(frontMesh);
+
+// Back face disc
+var backGeom = new THREE.CircleGeometry(COIN_RADIUS * 0.98, COIN_SEGMENTS);
+var backMat = new THREE.MeshStandardMaterial({
+  map: backTex,
+  metalness: 0.85,
+  roughness: 0.3,
+  envMap: envMap,
+  envMapIntensity: 0.6,
+  color: 0xffd700
+});
+var backMesh = new THREE.Mesh(backGeom, backMat);
+backMesh.position.z = -(COIN_THICKNESS / 2 + 0.001);
+backMesh.rotation.y = Math.PI;
+coinGroup.add(backMesh);
+
+// Apply normal maps when generated
+generateNormalMapFromImage('assets/gold-front-hd.png', function(normalTex) {
+  frontMat.normalMap = normalTex;
+  frontMat.normalScale = new THREE.Vector2(1.5, 1.5);
+  frontMat.needsUpdate = true;
+});
+
+generateNormalMapFromImage('assets/gold-back-hd.png', function(normalTex) {
+  backMat.normalMap = normalTex;
+  backMat.normalScale = new THREE.Vector2(1.5, 1.5);
+  backMat.needsUpdate = true;
+});
+
+// Outer rim ring (bevel)
+var rimShape = new THREE.TorusGeometry(COIN_RADIUS, COIN_THICKNESS / 2, 16, COIN_SEGMENTS);
+var rimMat = new THREE.MeshStandardMaterial({
+  color: 0xc9a84c,
+  metalness: 0.95,
+  roughness: 0.2,
+  envMap: envMap,
+  envMapIntensity: 1.2
+});
+var rimMesh = new THREE.Mesh(rimShape, rimMat);
+coinGroup.add(rimMesh);
+
+// ── Ambient Particles ──
+var particleCount = 80;
+var particleGeom = new THREE.BufferGeometry();
+var positions = new Float32Array(particleCount * 3);
+var particleVelocities = [];
+for (var i = 0; i < particleCount; i++) {
+  positions[i * 3] = (Math.random() - 0.5) * 12;
+  positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
+  positions[i * 3 + 2] = (Math.random() - 0.5) * 6 - 2;
+  particleVelocities.push({
+    x: (Math.random() - 0.5) * 0.003,
+    y: (Math.random() - 0.5) * 0.003,
+    z: (Math.random() - 0.5) * 0.001
+  });
+}
+particleGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+var particleMat = new THREE.PointsMaterial({ color: 0xffd700, size: 0.03, transparent: true, opacity: 0.4 });
+var particles = new THREE.Points(particleGeom, particleMat);
+scene.add(particles);
+
+// ══════════════════════════════════════
+// Coin Animation State
+// ══════════════════════════════════════
+var isFlipping = false;
+var coinRotation = { x: 0, y: 0 };
+var idleTime = 0;
+var totalHeads = 0;
+var totalTails = 0;
+var history = [];
+var multiFlipQueue = 0;
+
+var resultEl = document.getElementById('result');
+var statsEl = document.getElementById('stats');
+var historyBar = document.getElementById('history-bar');
+
+// ── Idle wobble ──
+function updateIdleWobble(dt) {
+  if (isFlipping) return;
+  idleTime += dt;
+  coinGroup.rotation.x = coinRotation.x + Math.sin(idleTime * 0.8) * 0.08;
+  coinGroup.rotation.y = coinRotation.y + Math.sin(idleTime * 0.6) * 0.05;
+}
+
+// ══════════════════════════════════════
+// Audio
+// ══════════════════════════════════════
+var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playFlipSound() {
-  // Whoosh + metallic spin sound
-  const duration = 0.15;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  const filter = audioCtx.createBiquadFilter();
+  var d = 0.15;
+  var osc = audioCtx.createOscillator();
+  var gain = audioCtx.createGain();
+  var filter = audioCtx.createBiquadFilter();
   osc.type = 'sawtooth';
   osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + duration);
-  filter.type = 'bandpass';
-  filter.frequency.value = 1200;
-  filter.Q.value = 2;
+  osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + d);
+  filter.type = 'bandpass'; filter.frequency.value = 1200; filter.Q.value = 2;
   gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-  osc.connect(filter);
-  filter.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + duration);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
+  osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + d);
 }
 
 function playSpinTick() {
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = 2000 + Math.random() * 1000;
+  var osc = audioCtx.createOscillator();
+  var gain = audioCtx.createGain();
+  osc.type = 'sine'; osc.frequency.value = 2000 + Math.random() * 1000;
   gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.03);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.03);
 }
 
 function playLandSound(isHeads) {
-  // Metallic impact
-  const t = audioCtx.currentTime;
-  const osc1 = audioCtx.createOscillator();
-  const osc2 = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  const filter = audioCtx.createBiquadFilter();
-  osc1.type = 'triangle';
-  osc1.frequency.value = isHeads ? 880 : 660;
-  osc2.type = 'sine';
-  osc2.frequency.value = isHeads ? 1760 : 1320;
-  filter.type = 'highpass';
-  filter.frequency.value = 400;
+  var t = audioCtx.currentTime;
+  var osc1 = audioCtx.createOscillator();
+  var osc2 = audioCtx.createOscillator();
+  var gain = audioCtx.createGain();
+  var filter = audioCtx.createBiquadFilter();
+  osc1.type = 'triangle'; osc1.frequency.value = isHeads ? 880 : 660;
+  osc2.type = 'sine'; osc2.frequency.value = isHeads ? 1760 : 1320;
+  filter.type = 'highpass'; filter.frequency.value = 400;
   gain.gain.setValueAtTime(0.15, t);
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-  osc1.connect(filter);
-  osc2.connect(filter);
-  filter.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc1.start(t);
-  osc2.start(t);
-  osc1.stop(t + 0.4);
-  osc2.stop(t + 0.4);
-
-  // Secondary bounce
+  osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+  osc1.start(t); osc2.start(t); osc1.stop(t + 0.4); osc2.stop(t + 0.4);
   setTimeout(function() {
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = 'triangle';
-    o.frequency.value = isHeads ? 660 : 500;
+    var o = audioCtx.createOscillator();
+    var g = audioCtx.createGain();
+    o.type = 'triangle'; o.frequency.value = isHeads ? 660 : 500;
     g.gain.setValueAtTime(0.06, audioCtx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-    o.connect(g);
-    g.connect(audioCtx.destination);
-    o.start();
-    o.stop(audioCtx.currentTime + 0.15);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.15);
   }, 120);
 }
 
 // ══════════════════════════════════════
-// Ambient Background
-// ══════════════════════════════════════
-const bgCanvas = document.getElementById('bg-canvas');
-const bgCtx = bgCanvas.getContext('2d');
-let bgParticles = [];
-
-function initBg() {
-  bgCanvas.width = window.innerWidth;
-  bgCanvas.height = window.innerHeight;
-  bgParticles = [];
-  for (let i = 0; i < 50; i++) {
-    bgParticles.push({
-      x: Math.random() * bgCanvas.width,
-      y: Math.random() * bgCanvas.height,
-      r: Math.random() * 2 + 0.5,
-      dx: (Math.random() - 0.5) * 0.3,
-      dy: (Math.random() - 0.5) * 0.3,
-      alpha: Math.random() * 0.3 + 0.05
-    });
-  }
-}
-
-function animateBg() {
-  bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-
-  // Gradient
-  const grd = bgCtx.createRadialGradient(
-    bgCanvas.width / 2, bgCanvas.height / 2, 0,
-    bgCanvas.width / 2, bgCanvas.height / 2, bgCanvas.width * 0.7
-  );
-  grd.addColorStop(0, 'rgba(25, 20, 50, 1)');
-  grd.addColorStop(0.5, 'rgba(10, 10, 30, 1)');
-  grd.addColorStop(1, 'rgba(5, 5, 15, 1)');
-  bgCtx.fillStyle = grd;
-  bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
-
-  // Floating particles
-  bgParticles.forEach(function(p) {
-    p.x += p.dx;
-    p.y += p.dy;
-    if (p.x < 0) p.x = bgCanvas.width;
-    if (p.x > bgCanvas.width) p.x = 0;
-    if (p.y < 0) p.y = bgCanvas.height;
-    if (p.y > bgCanvas.height) p.y = 0;
-
-    bgCtx.beginPath();
-    bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    bgCtx.fillStyle = 'rgba(255,215,0,' + p.alpha + ')';
-    bgCtx.fill();
-  });
-
-  requestAnimationFrame(animateBg);
-}
-
-window.addEventListener('resize', initBg);
-initBg();
-animateBg();
-
-// ══════════════════════════════════════
 // Coin Flip Logic
 // ══════════════════════════════════════
-const coin = document.getElementById('coin');
-const resultEl = document.getElementById('result');
-const statsEl = document.getElementById('stats');
-const historyBar = document.getElementById('history-bar');
-let isFlipping = false;
-let totalHeads = 0;
-let totalTails = 0;
-let currentRotationX = 0;
-let currentRotationY = 0;
-let history = [];
-let multiFlipQueue = 0;
-
-coin.style.transform = 'rotateX(0deg) rotateY(0deg)';
-
-// Generate 3D coin edge from real edge texture
-(function buildCoinEdge() {
-  var THICKNESS = 12; // total coin thickness in px
-  var SEGMENTS = 60;  // number of edge slices
-  var edgeImg = 'assets/coin-edge.png';
-  for (var i = 0; i < SEGMENTS; i++) {
-    var z = -THICKNESS / 2 + (THICKNESS / SEGMENTS) * i;
-    var seg = document.createElement('div');
-    seg.style.cssText =
-      'position:absolute;width:100%;height:100%;border-radius:50%;' +
-      'transform:translateZ(' + z + 'px);' +
-      'backface-visibility:hidden;' +
-      'background:linear-gradient(180deg, #c9a84c ' + (i/SEGMENTS*30) + '%, #8a7030 50%, #6b5520 100%);' +
-      'box-shadow:inset 0 0 3px rgba(0,0,0,0.3);';
-    coin.appendChild(seg);
-  }
-})();
-
 function updateStats() {
-  const total = totalHeads + totalTails;
+  var total = totalHeads + totalTails;
   if (!total) { statsEl.textContent = ''; return; }
-  const hPct = ((totalHeads / total) * 100).toFixed(1);
-  const tPct = ((totalTails / total) * 100).toFixed(1);
+  var hPct = ((totalHeads / total) * 100).toFixed(1);
+  var tPct = ((totalTails / total) * 100).toFixed(1);
   statsEl.textContent = 'H: ' + totalHeads + ' (' + hPct + '%)  |  T: ' + totalTails + ' (' + tPct + '%)  |  Total: ' + total;
 }
 
 function addHistory(isHeads) {
   history.push(isHeads);
-  const dot = document.createElement('div');
+  var dot = document.createElement('div');
   dot.className = 'history-dot ' + (isHeads ? 'heads' : 'tails');
   dot.textContent = isHeads ? 'H' : 'T';
   dot.title = '#' + history.length + ': ' + (isHeads ? 'Heads' : 'Tails');
   historyBar.appendChild(dot);
-  // Auto-scroll to latest
   historyBar.scrollLeft = historyBar.scrollWidth;
-}
-
-function spawnParticles(isHeads) {
-  const colors = isHeads
-    ? ['#ffd700','#ffec80','#daa520','#f0c000','#fff4b0']
-    : ['#c0c0c0','#e0e0e0','#a8a8a8','#d4d4d4','#f0f0f0'];
-
-  const cx = window.innerWidth / 2;
-  const cy = window.innerHeight / 2 - 40;
-
-  for (let i = 0; i < 30; i++) {
-    const p = document.createElement('div');
-    p.className = 'particle';
-    const angle = (Math.PI * 2 * i) / 30 + (Math.random() - 0.5) * 0.3;
-    const speed = 60 + Math.random() * 160;
-    const size = 3 + Math.random() * 6;
-    const isSquare = Math.random() > 0.6;
-
-    p.style.left = cx + 'px';
-    p.style.top = cy + 'px';
-    p.style.width = size + 'px';
-    p.style.height = size + 'px';
-    p.style.borderRadius = isSquare ? '2px' : '50%';
-    p.style.background = colors[Math.floor(Math.random() * colors.length)];
-    document.body.appendChild(p);
-
-    const dx = Math.cos(angle) * speed;
-    const dy = Math.sin(angle) * speed - 80;
-    const rotation = Math.random() * 720 - 360;
-
-    p.animate([
-      { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
-      { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(0) rotate(' + rotation + 'deg)', opacity: 0 }
-    ], { duration: 800 + Math.random() * 400, easing: 'ease-out' });
-
-    setTimeout(function() { p.remove(); }, 1200);
-  }
 }
 
 function screenShake() {
@@ -712,7 +727,56 @@ function screenShake() {
   setTimeout(function() { document.body.classList.remove('shaking'); }, 300);
 }
 
-let tickCount = 0;
+// 3D particle burst on landing
+function spawnCoinParticles(isHeads) {
+  var color = isHeads ? 0xffd700 : 0xc0c0c0;
+  var count = 40;
+  var burstGroup = new THREE.Group();
+  scene.add(burstGroup);
+
+  var geom = new THREE.SphereGeometry(0.02, 4, 4);
+  var parts = [];
+  for (var i = 0; i < count; i++) {
+    var mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 1 });
+    var mesh = new THREE.Mesh(geom, mat);
+    mesh.position.copy(coinGroup.position);
+    var angle = Math.random() * Math.PI * 2;
+    var elev = (Math.random() - 0.5) * Math.PI;
+    var speed = 2 + Math.random() * 4;
+    burstGroup.add(mesh);
+    parts.push({
+      mesh: mesh,
+      vx: Math.cos(angle) * Math.cos(elev) * speed,
+      vy: Math.sin(elev) * speed + 1,
+      vz: Math.sin(angle) * Math.cos(elev) * speed,
+      life: 1
+    });
+  }
+
+  var startTime = performance.now();
+  function animateParticles() {
+    var elapsed = (performance.now() - startTime) / 1000;
+    var alive = false;
+    parts.forEach(function(p) {
+      p.life -= 0.02;
+      if (p.life <= 0) { p.mesh.visible = false; return; }
+      alive = true;
+      p.vy -= 0.08; // gravity
+      p.mesh.position.x += p.vx * 0.016;
+      p.mesh.position.y += p.vy * 0.016;
+      p.mesh.position.z += p.vz * 0.016;
+      p.mesh.material.opacity = p.life;
+    });
+    if (alive) {
+      requestAnimationFrame(animateParticles);
+    } else {
+      scene.remove(burstGroup);
+    }
+  }
+  animateParticles();
+}
+
+var tickCount = 0;
 
 function flipCoin() {
   if (isFlipping) return;
@@ -720,20 +784,23 @@ function flipCoin() {
   resultEl.textContent = '';
   tickCount = 0;
 
-  // Resume audio context if suspended
   if (audioCtx.state === 'suspended') audioCtx.resume();
   playFlipSound();
 
   var isHeads = Math.random() < 0.5;
-  var fullSpinsX = (6 + Math.floor(Math.random() * 5)) * 360;
-  var finalX = isHeads ? 0 : 180;
-  var targetRotationX = currentRotationX + fullSpinsX + finalX - (currentRotationX % 360);
-  var wobbleY = (Math.random() - 0.5) * 60;
-  var targetRotationY = wobbleY;
-  var duration = 1800;
+  // Heads: front face up (rotation.x = 0 mod 2PI)
+  // Tails: back face up (rotation.x = PI mod 2PI)
+  var fullSpins = (6 + Math.floor(Math.random() * 5)) * Math.PI * 2;
+  var finalAngle = isHeads ? 0 : Math.PI;
+  var targetX = coinRotation.x + fullSpins + finalAngle - (coinRotation.x % (Math.PI * 2));
+  var wobbleY = (Math.random() - 0.5) * 0.8;
+  var targetY = wobbleY;
+
+  var duration = 2000;
   var startTime = performance.now();
-  var startX = currentRotationX;
-  var startY = currentRotationY;
+  var startX = coinRotation.x;
+  var startY = coinRotation.y;
+  var startPosY = coinGroup.position.y;
 
   function easeOutBack(t) {
     var c1 = 1.70158;
@@ -741,32 +808,42 @@ function flipCoin() {
     return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
   }
 
-  function animate(now) {
-    var elapsed = now - startTime;
+  function animateFlip() {
+    var elapsed = performance.now() - startTime;
     var progress = Math.min(elapsed / duration, 1);
     var eased = easeOutBack(progress);
-    var rx = startX + (targetRotationX - startX) * eased;
-    var ry = startY + (targetRotationY - startY) * eased;
-    var bounce = Math.sin(progress * Math.PI) * 90;
 
-    coin.style.transform = 'translateY(' + (-bounce) + 'px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg)';
+    var rx = startX + (targetX - startX) * eased;
+    var ry = startY + (targetY - startY) * eased;
 
-    // Spin tick sounds
-    var currentTick = Math.floor(rx / 90);
+    // Parabolic bounce
+    var bounce = Math.sin(progress * Math.PI) * 1.5;
+
+    coinGroup.rotation.x = rx;
+    coinGroup.rotation.y = ry;
+    coinGroup.position.y = startPosY + bounce;
+
+    // Tick sounds
+    var currentTick = Math.floor(rx / (Math.PI / 2));
     if (currentTick > tickCount && progress < 0.85) {
       tickCount = currentTick;
       playSpinTick();
     }
 
+    // Dynamic light intensity during spin
+    keyLight.intensity = 1.8 + Math.sin(rx * 2) * 0.5;
+
     if (progress < 1) {
-      requestAnimationFrame(animate);
+      requestAnimationFrame(animateFlip);
     } else {
-      currentRotationX = targetRotationX;
-      currentRotationY = targetRotationY;
+      coinRotation.x = targetX;
+      coinRotation.y = targetY;
+      coinGroup.position.y = startPosY;
       isFlipping = false;
 
       playLandSound(isHeads);
       screenShake();
+      spawnCoinParticles(isHeads);
 
       if (isHeads) {
         totalHeads++;
@@ -776,18 +853,19 @@ function flipCoin() {
         resultEl.innerHTML = '<span class="glow-tails">TAILS</span>';
       }
 
-      spawnParticles(isHeads);
       addHistory(isHeads);
       updateStats();
 
-      // Continue multi-flip queue
+      // Reset light
+      keyLight.intensity = 1.8;
+
       if (multiFlipQueue > 0) {
         multiFlipQueue--;
         setTimeout(flipCoin, 400);
       }
     }
   }
-  requestAnimationFrame(animate);
+  requestAnimationFrame(animateFlip);
 }
 
 function multiFlip(n) {
@@ -798,9 +876,7 @@ function multiFlip(n) {
 
 function resetStats() {
   if (isFlipping) return;
-  totalHeads = 0;
-  totalTails = 0;
-  history = [];
+  totalHeads = 0; totalTails = 0; history = [];
   historyBar.innerHTML = '';
   statsEl.textContent = '';
   resultEl.textContent = '';
@@ -811,7 +887,40 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ══════════════════════════════════════
-// Draggable Webcam
+// Render Loop
+// ══════════════════════════════════════
+var clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  var dt = clock.getDelta();
+
+  updateIdleWobble(dt);
+
+  // Animate ambient particles
+  var pos = particles.geometry.attributes.position.array;
+  for (var i = 0; i < particleCount; i++) {
+    pos[i * 3] += particleVelocities[i].x;
+    pos[i * 3 + 1] += particleVelocities[i].y;
+    pos[i * 3 + 2] += particleVelocities[i].z;
+    if (Math.abs(pos[i * 3]) > 6) particleVelocities[i].x *= -1;
+    if (Math.abs(pos[i * 3 + 1]) > 4) particleVelocities[i].y *= -1;
+  }
+  particles.geometry.attributes.position.needsUpdate = true;
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── Resize ──
+window.addEventListener('resize', function() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ══════════════════════════════════════
+// Webcam Drag
 // ══════════════════════════════════════
 var webcamWrapper = document.getElementById('webcam-wrapper');
 var isDragging = false;
@@ -826,20 +935,17 @@ webcamWrapper.addEventListener('mousedown', function(e) {
   dragOffsetY = e.clientY - rect.top;
   e.preventDefault();
 });
-
 document.addEventListener('mousemove', function(e) {
   if (!isDragging) return;
   webcamWrapper.style.right = 'auto';
   webcamWrapper.style.left = (e.clientX - dragOffsetX) + 'px';
   webcamWrapper.style.top = (e.clientY - dragOffsetY) + 'px';
 });
-
 document.addEventListener('mouseup', function() {
   isDragging = false;
   webcamWrapper.classList.remove('dragging');
 });
 
-// Touch drag
 webcamWrapper.addEventListener('touchstart', function(e) {
   if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
   isDragging = true;
@@ -848,7 +954,6 @@ webcamWrapper.addEventListener('touchstart', function(e) {
   dragOffsetX = touch.clientX - rect.left;
   dragOffsetY = touch.clientY - rect.top;
 }, { passive: true });
-
 document.addEventListener('touchmove', function(e) {
   if (!isDragging) return;
   var touch = e.touches[0];
@@ -856,7 +961,6 @@ document.addEventListener('touchmove', function(e) {
   webcamWrapper.style.left = (touch.clientX - dragOffsetX) + 'px';
   webcamWrapper.style.top = (touch.clientY - dragOffsetY) + 'px';
 }, { passive: true });
-
 document.addEventListener('touchend', function() { isDragging = false; });
 
 function toggleWebcam(e) {
@@ -890,15 +994,7 @@ var lastGesture = '';
 var gestureHoldStart = 0;
 
 function updateSensitivity(val) {
-  swipeThreshold = (30 - parseInt(val)) / 100; // Higher slider = lower threshold = more sensitive
-}
-
-function showSwipeArrow() {
-  var arrow = document.getElementById('swipe-arrow');
-  arrow.classList.remove('active');
-  void arrow.offsetWidth;
-  arrow.classList.add('active');
-  setTimeout(function() { arrow.classList.remove('active'); }, 500);
+  swipeThreshold = (30 - parseInt(val)) / 100;
 }
 
 function countFingersUp(lm) {
@@ -911,18 +1007,15 @@ function countFingersUp(lm) {
 }
 
 function isThumbUp(lm) {
-  // Thumb tip (4) is significantly above thumb IP (3) and all other fingers are curled
   var thumbUp = lm[4].y < lm[3].y - 0.04;
   var fingersCurled = lm[8].y > lm[6].y && lm[12].y > lm[10].y && lm[16].y > lm[14].y && lm[20].y > lm[18].y;
   return thumbUp && fingersCurled;
 }
 
 function isFist(lm) {
-  // All fingertips below their respective PIP joints
   return lm[8].y > lm[6].y && lm[12].y > lm[10].y && lm[16].y > lm[14].y && lm[20].y > lm[18].y && lm[4].y > lm[2].y;
 }
 
-// Motion trail
 var trailPoints = [];
 var MAX_TRAIL = 15;
 
@@ -937,7 +1030,6 @@ function drawTrail() {
   gCtx.strokeStyle = 'rgba(255,215,0,0.6)';
   gCtx.lineWidth = 3;
   gCtx.lineCap = 'round';
-  gCtx.lineJoin = 'round';
   gCtx.shadowColor = '#ffd700';
   gCtx.shadowBlur = 8;
   gCtx.stroke();
@@ -952,14 +1044,12 @@ function onResults(results) {
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     var landmarks = results.multiHandLandmarks[0];
 
-    // Draw skeleton
     gCtx.save();
     gCtx.scale(w, h);
     drawConnectors(gCtx, landmarks, HAND_CONNECTIONS, { color: 'rgba(255,215,0,0.4)', lineWidth: 0.004 });
     drawLandmarks(gCtx, landmarks, { color: '#ffd700', lineWidth: 0.002, radius: 0.006 });
     gCtx.restore();
 
-    // Motion trail (wrist position)
     trailPoints.push({ x: landmarks[0].x * w, y: landmarks[0].y * h });
     if (trailPoints.length > MAX_TRAIL) trailPoints.shift();
     drawTrail();
@@ -969,17 +1059,14 @@ function onResults(results) {
     handHistory.push({ y: wristY, t: now });
     if (handHistory.length > HISTORY_LEN) handHistory.shift();
 
-    // ── Gesture: Swipe Up ──
     if (handHistory.length >= 4) {
       var oldest = handHistory[0];
       var newest = handHistory[handHistory.length - 1];
       var dy = oldest.y - newest.y;
       var dt = newest.t - oldest.t;
-
       if (dy > swipeThreshold && dt < 600 && (now - lastFlipTime) > COOLDOWN) {
         lastFlipTime = now;
         handHistory = [];
-        showSwipeArrow();
         flipCoin();
         gestureName.textContent = 'SWIPE UP';
         indicator.textContent = 'Flipping!';
@@ -988,13 +1075,9 @@ function onResults(results) {
       }
     }
 
-    // ── Gesture: Thumbs Up ──
     if (isThumbUp(landmarks)) {
       gestureName.textContent = 'THUMBS UP';
-      if (lastGesture !== 'thumbsup') {
-        gestureHoldStart = now;
-        lastGesture = 'thumbsup';
-      }
+      if (lastGesture !== 'thumbsup') { gestureHoldStart = now; lastGesture = 'thumbsup'; }
       if (now - gestureHoldStart > 600 && (now - lastFlipTime) > COOLDOWN) {
         lastFlipTime = now;
         flipCoin();
@@ -1006,24 +1089,19 @@ function onResults(results) {
       return;
     }
 
-    // ── Gesture: Fist ──
     if (isFist(landmarks)) {
       gestureName.textContent = 'FIST';
-      if (lastGesture !== 'fist') {
-        gestureHoldStart = now;
-        lastGesture = 'fist';
-      }
+      if (lastGesture !== 'fist') { gestureHoldStart = now; lastGesture = 'fist'; }
       if (now - gestureHoldStart > 1000 && !isFlipping) {
         resetStats();
         indicator.textContent = 'Stats reset!';
-        gestureHoldStart = now + 3000; // prevent repeated resets
+        gestureHoldStart = now + 3000;
       } else {
         indicator.textContent = 'Hold fist to reset...';
       }
       return;
     }
 
-    // ── Open Hand (ready) ──
     var fingersUp = countFingersUp(landmarks);
     if (fingersUp >= 4) {
       gestureName.textContent = 'OPEN HAND';
@@ -1057,13 +1135,13 @@ function initHands() {
   });
   hands.onResults(onResults);
 
-  var camera = new Camera(video, {
+  var cam = new Camera(video, {
     onFrame: async function() { await hands.send({ image: video }); },
     width: 320,
     height: 240,
     facingMode: 'user'
   });
-  camera.start();
+  cam.start();
   indicator.textContent = 'Detecting hands...';
 }
 
