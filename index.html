@@ -8,7 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #0a0a1a;
+    background: #000000;
     min-height: 100vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     color: #fff;
@@ -376,7 +376,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 
 var scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a1a);
+scene.background = new THREE.Color(0x000000);
 
 var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.set(0, 0, 5);
@@ -590,37 +590,8 @@ generateNormalMapFromImage('assets/gold-back-hd.png', function(normalTex) {
   backMat.needsUpdate = true;
 });
 
-// Outer rim ring (bevel)
-var rimShape = new THREE.TorusGeometry(COIN_RADIUS, COIN_THICKNESS / 2, 16, COIN_SEGMENTS);
-var rimMat = new THREE.MeshStandardMaterial({
-  color: 0xc9a84c,
-  metalness: 0.95,
-  roughness: 0.2,
-  envMap: envMap,
-  envMapIntensity: 1.2
-});
-var rimMesh = new THREE.Mesh(rimShape, rimMat);
-coinGroup.add(rimMesh);
-
-// ── Ambient Particles ──
-var particleCount = 80;
-var particleGeom = new THREE.BufferGeometry();
-var positions = new Float32Array(particleCount * 3);
-var particleVelocities = [];
-for (var i = 0; i < particleCount; i++) {
-  positions[i * 3] = (Math.random() - 0.5) * 12;
-  positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
-  positions[i * 3 + 2] = (Math.random() - 0.5) * 6 - 2;
-  particleVelocities.push({
-    x: (Math.random() - 0.5) * 0.003,
-    y: (Math.random() - 0.5) * 0.003,
-    z: (Math.random() - 0.5) * 0.001
-  });
-}
-particleGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-var particleMat = new THREE.PointsMaterial({ color: 0xffd700, size: 0.03, transparent: true, opacity: 0.4 });
-var particles = new THREE.Points(particleGeom, particleMat);
-scene.add(particles);
+// No torus rim - clean coin edge
+// No ambient particles - clean black background
 
 // ══════════════════════════════════════
 // Coin Animation State
@@ -897,16 +868,6 @@ function animate() {
 
   updateIdleWobble(dt);
 
-  // Animate ambient particles
-  var pos = particles.geometry.attributes.position.array;
-  for (var i = 0; i < particleCount; i++) {
-    pos[i * 3] += particleVelocities[i].x;
-    pos[i * 3 + 1] += particleVelocities[i].y;
-    pos[i * 3 + 2] += particleVelocities[i].z;
-    if (Math.abs(pos[i * 3]) > 6) particleVelocities[i].x *= -1;
-    if (Math.abs(pos[i * 3 + 1]) > 4) particleVelocities[i].y *= -1;
-  }
-  particles.geometry.attributes.position.needsUpdate = true;
 
   renderer.render(scene, camera);
 }
