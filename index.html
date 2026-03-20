@@ -383,23 +383,28 @@ camera.position.set(0, 0, 5);
 camera.lookAt(0, 0, 0);
 
 // ── Lighting ──
-var ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+var ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
 
-var keyLight = new THREE.DirectionalLight(0xfff5e0, 1.8);
+// Symmetric lighting so both coin faces are well-lit
+var keyLight = new THREE.DirectionalLight(0xfff5e0, 1.6);
 keyLight.position.set(3, 4, 5);
 scene.add(keyLight);
+
+var keyLightBack = new THREE.DirectionalLight(0xfff5e0, 1.6);
+keyLightBack.position.set(3, 4, -5);
+scene.add(keyLightBack);
 
 var fillLight = new THREE.DirectionalLight(0xc0d0ff, 0.6);
 fillLight.position.set(-3, 2, 3);
 scene.add(fillLight);
 
-var rimLight = new THREE.DirectionalLight(0xffd700, 0.8);
-rimLight.position.set(0, -3, -2);
-scene.add(rimLight);
+var fillLightBack = new THREE.DirectionalLight(0xc0d0ff, 0.6);
+fillLightBack.position.set(-3, 2, -3);
+scene.add(fillLightBack);
 
-var topLight = new THREE.PointLight(0xffffff, 0.5, 20);
-topLight.position.set(0, 5, 2);
+var topLight = new THREE.PointLight(0xffffff, 0.6, 20);
+topLight.position.set(0, 5, 0);
 scene.add(topLight);
 
 // ── Environment Map (procedural) ──
@@ -512,8 +517,8 @@ function generateNormalMapFromImage(imageSrc, callback) {
 var coinGroup = new THREE.Group();
 scene.add(coinGroup);
 
-// Crop and circle-mask coin texture from source image
-// The coin occupies roughly the center 62% of the image
+// Crop coin from source image (coin is ~37% of image, centered)
+// Then fill a gold background behind it so there's no transparency gap
 function cropCoinTexture(src, callback) {
   var img = new Image();
   img.crossOrigin = 'anonymous';
@@ -524,21 +529,21 @@ function cropCoinTexture(src, callback) {
     c.height = size;
     var ctx = c.getContext('2d');
 
-    // Crop: coin is centered, ~62% of image
-    var coinRatio = 0.62;
+    // Fill with gold background first (matches coin edge color)
+    ctx.fillStyle = '#daa520';
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Coin occupies center ~37% of image. Crop tightly.
+    var coinRatio = 0.40; // slightly larger than 0.37 for safety
     var sx = img.width * (1 - coinRatio) / 2;
     var sy = img.height * (1 - coinRatio) / 2;
     var sw = img.width * coinRatio;
     var sh = img.height * coinRatio;
 
-    // Draw cropped coin into full canvas
+    // Draw cropped coin to fill the canvas
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
-
-    // Apply circular mask
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.fill();
 
     var tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -551,47 +556,44 @@ function cropCoinTexture(src, callback) {
 var frontMat, backMat;
 
 function buildCoin(fTex, bTex) {
-  // Cylinder edge
-  var edgeGeom = new THREE.CylinderGeometry(COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, COIN_SEGMENTS, 1, true);
+  // Use a CLOSED cylinder so the top/bottom caps are part of the geometry
+  // This eliminates the gap between edge and face discs
+  var coinGeom = new THREE.CylinderGeometry(COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, COIN_SEGMENTS, 1, false);
+  // Cylinder has 3 material groups: side, top cap, bottom cap
+  // We assign different materials to each
+
   var edgeMat = new THREE.MeshStandardMaterial({
     color: 0xdaa520,
     metalness: 0.95,
-    roughness: 0.25,
+    roughness: 0.2,
     envMap: envMap,
-    envMapIntensity: 1.0
+    envMapIntensity: 1.2
   });
-  var edgeMesh = new THREE.Mesh(edgeGeom, edgeMat);
-  edgeMesh.rotation.x = Math.PI / 2;
-  coinGroup.add(edgeMesh);
 
-  // Front face disc
-  var faceGeom = new THREE.CircleGeometry(COIN_RADIUS, COIN_SEGMENTS);
   frontMat = new THREE.MeshStandardMaterial({
     map: fTex,
-    metalness: 0.85,
-    roughness: 0.3,
+    color: 0xffd700,
+    metalness: 0.9,
+    roughness: 0.25,
     envMap: envMap,
-    envMapIntensity: 0.6,
-    transparent: true
+    envMapIntensity: 0.8
   });
-  var frontMesh = new THREE.Mesh(faceGeom, frontMat);
-  frontMesh.position.z = COIN_THICKNESS / 2 + 0.001;
-  coinGroup.add(frontMesh);
 
-  // Back face disc
-  var backGeom = new THREE.CircleGeometry(COIN_RADIUS, COIN_SEGMENTS);
   backMat = new THREE.MeshStandardMaterial({
     map: bTex,
-    metalness: 0.85,
-    roughness: 0.3,
+    color: 0xffd700,
+    metalness: 0.9,
+    roughness: 0.25,
     envMap: envMap,
-    envMapIntensity: 0.6,
-    transparent: true
+    envMapIntensity: 0.8
   });
-  var backMesh = new THREE.Mesh(backGeom, backMat);
-  backMesh.position.z = -(COIN_THICKNESS / 2 + 0.001);
-  backMesh.rotation.y = Math.PI;
-  coinGroup.add(backMesh);
+
+  // CylinderGeometry groups: 0=side, 1=top cap, 2=bottom cap
+  // Cylinder is oriented along Y axis, rotated so Y->Z
+  // After rotation: top cap = front (+Z), bottom cap = back (-Z)
+  var coinMesh = new THREE.Mesh(coinGeom, [edgeMat, frontMat, backMat]);
+  coinMesh.rotation.x = Math.PI / 2;
+  coinGroup.add(coinMesh);
 }
 
 // Load, crop, and build
@@ -883,7 +885,9 @@ function flipCoin() {
     }
 
     // Dynamic light intensity during spin
-    keyLight.intensity = 1.8 + Math.sin(rx * 2) * 0.5;
+    var flicker = 1.6 + Math.sin(rx * 2) * 0.4;
+    keyLight.intensity = flicker;
+    keyLightBack.intensity = flicker;
 
     if (progress < 1) {
       requestAnimationFrame(animateFlip);
@@ -909,7 +913,8 @@ function flipCoin() {
       updateStats();
 
       // Reset light
-      keyLight.intensity = 1.8;
+      keyLight.intensity = 1.6;
+      keyLightBack.intensity = 1.6;
 
       if (multiFlipQueue > 0) {
         multiFlipQueue--;
