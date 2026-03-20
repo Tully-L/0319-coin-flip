@@ -446,7 +446,7 @@ scene.environment = envMap;
 
 // ── Coin Geometry ──
 var COIN_RADIUS = 1.0;
-var COIN_THICKNESS = 0.05;
+var COIN_THICKNESS = 0.07;
 var COIN_SEGMENTS = 128;
 
 // Load textures
@@ -535,7 +535,7 @@ function cropCoinTexture(src, callback) {
 
     // Crop at 0.35 (tighter than coin's 0.374) so coin OVERFLOWS canvas
     // This ensures no gold ring shows - geometry clips the excess
-    var coinRatio = 0.35;
+    var coinRatio = 0.38;
     var sx = img.width * (1 - coinRatio) / 2;
     var sy = img.height * (1 - coinRatio) / 2;
     var sw = img.width * coinRatio;
