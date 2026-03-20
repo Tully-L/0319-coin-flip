@@ -512,83 +512,164 @@ function generateNormalMapFromImage(imageSrc, callback) {
 var coinGroup = new THREE.Group();
 scene.add(coinGroup);
 
-// Front face (Hidalgo portrait) - this is the "heads" side
-var frontTex = textureLoader.load('assets/gold-front-hd.png');
-frontTex.colorSpace = THREE.SRGBColorSpace;
+// Crop and circle-mask coin texture from source image
+// The coin occupies roughly the center 62% of the image
+function cropCoinTexture(src, callback) {
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() {
+    var size = 512;
+    var c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    var ctx = c.getContext('2d');
 
-// Back face (Eagle coat of arms) - this is the "tails" side
-var backTex = textureLoader.load('assets/gold-back-hd.png');
-backTex.colorSpace = THREE.SRGBColorSpace;
+    // Crop: coin is centered, ~62% of image
+    var coinRatio = 0.62;
+    var sx = img.width * (1 - coinRatio) / 2;
+    var sy = img.height * (1 - coinRatio) / 2;
+    var sw = img.width * coinRatio;
+    var sh = img.height * coinRatio;
 
-// Create coin body (cylinder for the edge)
-var edgeGeom = new THREE.CylinderGeometry(COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, COIN_SEGMENTS, 1, true);
-var edgeMat = new THREE.MeshStandardMaterial({
-  color: 0xdaa520,
-  metalness: 0.95,
-  roughness: 0.25,
-  envMap: envMap,
-  envMapIntensity: 1.0
+    // Draw cropped coin into full canvas
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+
+    // Apply circular mask
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    var tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    callback(tex, c);
+  };
+  img.src = src;
+}
+
+// Build coin once textures are ready
+var frontMat, backMat;
+
+function buildCoin(fTex, bTex) {
+  // Cylinder edge
+  var edgeGeom = new THREE.CylinderGeometry(COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, COIN_SEGMENTS, 1, true);
+  var edgeMat = new THREE.MeshStandardMaterial({
+    color: 0xdaa520,
+    metalness: 0.95,
+    roughness: 0.25,
+    envMap: envMap,
+    envMapIntensity: 1.0
+  });
+  var edgeMesh = new THREE.Mesh(edgeGeom, edgeMat);
+  edgeMesh.rotation.x = Math.PI / 2;
+  coinGroup.add(edgeMesh);
+
+  // Front face disc
+  var faceGeom = new THREE.CircleGeometry(COIN_RADIUS, COIN_SEGMENTS);
+  frontMat = new THREE.MeshStandardMaterial({
+    map: fTex,
+    metalness: 0.85,
+    roughness: 0.3,
+    envMap: envMap,
+    envMapIntensity: 0.6,
+    transparent: true
+  });
+  var frontMesh = new THREE.Mesh(faceGeom, frontMat);
+  frontMesh.position.z = COIN_THICKNESS / 2 + 0.001;
+  coinGroup.add(frontMesh);
+
+  // Back face disc
+  var backGeom = new THREE.CircleGeometry(COIN_RADIUS, COIN_SEGMENTS);
+  backMat = new THREE.MeshStandardMaterial({
+    map: bTex,
+    metalness: 0.85,
+    roughness: 0.3,
+    envMap: envMap,
+    envMapIntensity: 0.6,
+    transparent: true
+  });
+  var backMesh = new THREE.Mesh(backGeom, backMat);
+  backMesh.position.z = -(COIN_THICKNESS / 2 + 0.001);
+  backMesh.rotation.y = Math.PI;
+  coinGroup.add(backMesh);
+}
+
+// Load, crop, and build
+var loadedTextures = { front: null, back: null };
+
+cropCoinTexture('assets/gold-front-hd.png', function(tex, canvas) {
+  loadedTextures.front = tex;
+  if (loadedTextures.back) buildCoin(loadedTextures.front, loadedTextures.back);
+
+  // Generate normal map from cropped canvas
+  generateNormalMapFromCanvas(canvas, function(nTex) {
+    if (frontMat) {
+      frontMat.normalMap = nTex;
+      frontMat.normalScale = new THREE.Vector2(1.5, 1.5);
+      frontMat.needsUpdate = true;
+    }
+  });
 });
-var edgeMesh = new THREE.Mesh(edgeGeom, edgeMat);
-edgeMesh.rotation.x = Math.PI / 2; // Align cylinder with Z axis
-coinGroup.add(edgeMesh);
 
-// Add ridges on the edge
-var ridgeGeom = new THREE.CylinderGeometry(COIN_RADIUS * 1.003, COIN_RADIUS * 1.003, COIN_THICKNESS * 0.9, COIN_SEGMENTS, 1, true);
-var ridgeMat = new THREE.MeshStandardMaterial({
-  color: 0xb8860b,
-  metalness: 0.98,
-  roughness: 0.15,
-  envMap: envMap,
-  wireframe: false,
-  transparent: true,
-  opacity: 0.3
-});
-var ridgeMesh = new THREE.Mesh(ridgeGeom, ridgeMat);
-ridgeMesh.rotation.x = Math.PI / 2;
-coinGroup.add(ridgeMesh);
+cropCoinTexture('assets/gold-back-hd.png', function(tex, canvas) {
+  loadedTextures.back = tex;
+  if (loadedTextures.front) buildCoin(loadedTextures.front, loadedTextures.back);
 
-// Front face disc
-var faceGeom = new THREE.CircleGeometry(COIN_RADIUS * 0.98, COIN_SEGMENTS);
-var frontMat = new THREE.MeshStandardMaterial({
-  map: frontTex,
-  metalness: 0.85,
-  roughness: 0.3,
-  envMap: envMap,
-  envMapIntensity: 0.6,
-  color: 0xffd700
-});
-var frontMesh = new THREE.Mesh(faceGeom, frontMat);
-frontMesh.position.z = COIN_THICKNESS / 2 + 0.001;
-coinGroup.add(frontMesh);
-
-// Back face disc
-var backGeom = new THREE.CircleGeometry(COIN_RADIUS * 0.98, COIN_SEGMENTS);
-var backMat = new THREE.MeshStandardMaterial({
-  map: backTex,
-  metalness: 0.85,
-  roughness: 0.3,
-  envMap: envMap,
-  envMapIntensity: 0.6,
-  color: 0xffd700
-});
-var backMesh = new THREE.Mesh(backGeom, backMat);
-backMesh.position.z = -(COIN_THICKNESS / 2 + 0.001);
-backMesh.rotation.y = Math.PI;
-coinGroup.add(backMesh);
-
-// Apply normal maps when generated
-generateNormalMapFromImage('assets/gold-front-hd.png', function(normalTex) {
-  frontMat.normalMap = normalTex;
-  frontMat.normalScale = new THREE.Vector2(1.5, 1.5);
-  frontMat.needsUpdate = true;
+  generateNormalMapFromCanvas(canvas, function(nTex) {
+    if (backMat) {
+      backMat.normalMap = nTex;
+      backMat.normalScale = new THREE.Vector2(1.5, 1.5);
+      backMat.needsUpdate = true;
+    }
+  });
 });
 
-generateNormalMapFromImage('assets/gold-back-hd.png', function(normalTex) {
-  backMat.normalMap = normalTex;
-  backMat.normalScale = new THREE.Vector2(1.5, 1.5);
-  backMat.needsUpdate = true;
-});
+function generateNormalMapFromCanvas(srcCanvas, callback) {
+  var size = srcCanvas.width;
+  var ctx = srcCanvas.getContext('2d');
+  var imageData = ctx.getImageData(0, 0, size, size);
+  var data = imageData.data;
+
+  var heights = new Float32Array(size * size);
+  for (var i = 0; i < size * size; i++) {
+    var idx = i * 4;
+    heights[i] = (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114) / 255;
+  }
+
+  var nc = document.createElement('canvas');
+  nc.width = size; nc.height = size;
+  var nctx = nc.getContext('2d');
+  var normalData = nctx.createImageData(size, size);
+  var nd = normalData.data;
+  var strength = 2.5;
+
+  for (var y = 0; y < size; y++) {
+    for (var x = 0; x < size; x++) {
+      var idx2 = y * size + x;
+      var tl = heights[((y-1+size)%size)*size+((x-1+size)%size)];
+      var t = heights[((y-1+size)%size)*size+x];
+      var tr = heights[((y-1+size)%size)*size+((x+1)%size)];
+      var l = heights[y*size+((x-1+size)%size)];
+      var r2 = heights[y*size+((x+1)%size)];
+      var bl = heights[((y+1)%size)*size+((x-1+size)%size)];
+      var b = heights[((y+1)%size)*size+x];
+      var br = heights[((y+1)%size)*size+((x+1)%size)];
+      var ddx = (tr+2*r2+br)-(tl+2*l+bl);
+      var ddy = (bl+2*b+br)-(tl+2*t+tr);
+      var ddz = 1.0/strength;
+      var len = Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz);
+      var pi = idx2*4;
+      nd[pi]   = Math.floor((ddx/len*0.5+0.5)*255);
+      nd[pi+1] = Math.floor((ddy/len*0.5+0.5)*255);
+      nd[pi+2] = Math.floor((ddz/len*0.5+0.5)*255);
+      nd[pi+3] = 255;
+    }
+  }
+  nctx.putImageData(normalData, 0, 0);
+  callback(new THREE.CanvasTexture(nc));
+}
+
+// Normal maps are generated inline during cropCoinTexture
 
 // No torus rim - clean coin edge
 // No ambient particles - clean black background
