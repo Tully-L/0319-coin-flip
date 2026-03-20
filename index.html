@@ -556,11 +556,8 @@ function cropCoinTexture(src, callback) {
 var frontMat, backMat;
 
 function buildCoin(fTex, bTex) {
-  // Use a CLOSED cylinder so the top/bottom caps are part of the geometry
-  // This eliminates the gap between edge and face discs
+  // Main coin body (closed cylinder)
   var coinGeom = new THREE.CylinderGeometry(COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, COIN_SEGMENTS, 1, false);
-  // Cylinder has 3 material groups: side, top cap, bottom cap
-  // We assign different materials to each
 
   var edgeMat = new THREE.MeshStandardMaterial({
     color: 0xdaa520,
@@ -588,12 +585,41 @@ function buildCoin(fTex, bTex) {
     envMapIntensity: 0.8
   });
 
-  // CylinderGeometry groups: 0=side, 1=top cap, 2=bottom cap
-  // Cylinder is oriented along Y axis, rotated so Y->Z
-  // After rotation: top cap = front (+Z), bottom cap = back (-Z)
   var coinMesh = new THREE.Mesh(coinGeom, [edgeMat, frontMat, backMat]);
   coinMesh.rotation.x = Math.PI / 2;
   coinGroup.add(coinMesh);
+
+  // Reeded edge (齿纹) - small ridges around the coin edge
+  var REED_COUNT = 150;
+  var reedMat = new THREE.MeshStandardMaterial({
+    color: 0xb8860b,
+    metalness: 0.98,
+    roughness: 0.15,
+    envMap: envMap,
+    envMapIntensity: 1.0
+  });
+
+  // Each reed is a small box placed radially around the edge
+  var reedWidth = 0.008;
+  var reedDepth = 0.012;
+  var reedGeom = new THREE.BoxGeometry(reedWidth, COIN_THICKNESS * 0.85, reedDepth);
+
+  // Use instanced mesh for performance
+  var reedInstanced = new THREE.InstancedMesh(reedGeom, reedMat, REED_COUNT);
+  var dummy = new THREE.Object3D();
+
+  for (var i = 0; i < REED_COUNT; i++) {
+    var angle = (i / REED_COUNT) * Math.PI * 2;
+    var x = Math.cos(angle) * (COIN_RADIUS + reedDepth * 0.4);
+    var z = Math.sin(angle) * (COIN_RADIUS + reedDepth * 0.4);
+    dummy.position.set(x, 0, z);
+    dummy.rotation.y = -angle;
+    dummy.updateMatrix();
+    reedInstanced.setMatrixAt(i, dummy.matrix);
+  }
+
+  reedInstanced.rotation.x = Math.PI / 2;
+  coinGroup.add(reedInstanced);
 }
 
 // Load, crop, and build
