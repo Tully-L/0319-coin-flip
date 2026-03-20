@@ -747,7 +747,7 @@ var coinRotation = { x: 0, y: 0 };
 var idleTime = 0;
 var totalHeads = 0;
 var totalTails = 0;
-var history = [];
+var flipHistory = [];
 var multiFlipQueue = 0;
 
 var resultEl = document.getElementById('result');
@@ -972,11 +972,11 @@ function updateStats() {
 }
 
 function addHistory(isHeads) {
-  history.push(isHeads);
+  flipHistory.push(isHeads);
   var dot = document.createElement('div');
   dot.className = 'history-dot ' + (isHeads ? 'heads' : 'tails');
   dot.textContent = isHeads ? 'H' : 'T';
-  dot.title = '#' + history.length + ': ' + (isHeads ? 'Heads' : 'Tails');
+  dot.title = '#' + flipHistory.length + ': ' + (isHeads ? 'Heads' : 'Tails');
   historyBar.appendChild(dot);
   historyBar.scrollLeft = historyBar.scrollWidth;
 }
@@ -1197,7 +1197,7 @@ function multiFlip(n) {
 
 function resetStats() {
   if (isFlipping) return;
-  totalHeads = 0; totalTails = 0; history = [];
+  totalHeads = 0; totalTails = 0; flipHistory = [];
   historyBar.innerHTML = '';
   statsEl.textContent = '';
   resultEl.textContent = '';
