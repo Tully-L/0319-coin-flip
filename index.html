@@ -446,7 +446,7 @@ scene.environment = envMap;
 
 // ── Coin Geometry ──
 var COIN_RADIUS = 1.0;
-var COIN_THICKNESS = 0.09;
+var COIN_THICKNESS = 0.05;
 var COIN_SEGMENTS = 128;
 
 // Load textures
@@ -517,8 +517,8 @@ function generateNormalMapFromImage(imageSrc, callback) {
 var coinGroup = new THREE.Group();
 scene.add(coinGroup);
 
-// Crop coin from source image (coin is ~37% of image, centered)
-// Then fill a gold background behind it so there's no transparency gap
+// Crop coin from source image (coin is ~37.4% of image, centered)
+// Crop TIGHTER than the coin so it overfills the canvas - geometry clips to circle
 function cropCoinTexture(src, callback) {
   var img = new Image();
   img.crossOrigin = 'anonymous';
@@ -529,20 +529,18 @@ function cropCoinTexture(src, callback) {
     c.height = size;
     var ctx = c.getContext('2d');
 
-    // Fill with gold background first (matches coin edge color)
-    ctx.fillStyle = '#daa520';
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.fill();
+    // Fill with gold first as safety net
+    ctx.fillStyle = '#c9a84c';
+    ctx.fillRect(0, 0, size, size);
 
-    // Coin occupies center ~37% of image. Crop tightly.
-    var coinRatio = 0.40; // slightly larger than 0.37 for safety
+    // Crop at 0.35 (tighter than coin's 0.374) so coin OVERFLOWS canvas
+    // This ensures no gold ring shows - geometry clips the excess
+    var coinRatio = 0.35;
     var sx = img.width * (1 - coinRatio) / 2;
     var sy = img.height * (1 - coinRatio) / 2;
     var sw = img.width * coinRatio;
     var sh = img.height * coinRatio;
 
-    // Draw cropped coin to fill the canvas
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
 
     var tex = new THREE.CanvasTexture(c);
@@ -622,33 +620,46 @@ function buildCoin(fTex, bTex) {
   coinGroup.add(reedInstanced);
 }
 
-// Load, crop, and build
+// Load, crop, and build — store normal maps to apply after buildCoin
 var loadedTextures = { front: null, back: null };
+var pendingNormals = { front: null, back: null };
+
+function applyNormalMaps() {
+  if (pendingNormals.front && frontMat) {
+    frontMat.normalMap = pendingNormals.front;
+    frontMat.normalScale = new THREE.Vector2(1.5, 1.5);
+    frontMat.needsUpdate = true;
+  }
+  if (pendingNormals.back && backMat) {
+    backMat.normalMap = pendingNormals.back;
+    backMat.normalScale = new THREE.Vector2(1.5, 1.5);
+    backMat.needsUpdate = true;
+  }
+}
+
+function tryBuildCoin() {
+  if (loadedTextures.front && loadedTextures.back) {
+    buildCoin(loadedTextures.front, loadedTextures.back);
+    // Apply any normal maps that were generated before buildCoin
+    applyNormalMaps();
+  }
+}
 
 cropCoinTexture('assets/gold-front-hd.png', function(tex, canvas) {
   loadedTextures.front = tex;
-  if (loadedTextures.back) buildCoin(loadedTextures.front, loadedTextures.back);
-
-  // Generate normal map from cropped canvas
+  tryBuildCoin();
   generateNormalMapFromCanvas(canvas, function(nTex) {
-    if (frontMat) {
-      frontMat.normalMap = nTex;
-      frontMat.normalScale = new THREE.Vector2(1.5, 1.5);
-      frontMat.needsUpdate = true;
-    }
+    pendingNormals.front = nTex;
+    applyNormalMaps();
   });
 });
 
 cropCoinTexture('assets/gold-back-hd.png', function(tex, canvas) {
   loadedTextures.back = tex;
-  if (loadedTextures.front) buildCoin(loadedTextures.front, loadedTextures.back);
-
+  tryBuildCoin();
   generateNormalMapFromCanvas(canvas, function(nTex) {
-    if (backMat) {
-      backMat.normalMap = nTex;
-      backMat.normalScale = new THREE.Vector2(1.5, 1.5);
-      backMat.needsUpdate = true;
-    }
+    pendingNormals.back = nTex;
+    applyNormalMaps();
   });
 });
 
